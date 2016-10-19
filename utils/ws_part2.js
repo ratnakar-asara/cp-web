@@ -5,7 +5,6 @@ var chaincode = {};
 var chain = {};
 var async = require('async');
 var http = require('http');
-var https = require('https');
 var util = require('util');
 var peers = null;
 
@@ -101,7 +100,7 @@ module.exports.process_msg = function (ws, data) {
             else if (data.type == 'chainstats') {
                 var options = {
                     host: peers[0],
-                    port: '443',
+                    port: '7050',
                     path: '/chain',
                     method: 'GET'
                 };
@@ -116,7 +115,7 @@ module.exports.process_msg = function (ws, data) {
                 };
 
                 var goodJSON = false;
-                var request = https.request(options, function (resp) {
+                var request = http.request(options, function (resp) {
                     var str = '', temp, chunks = 0;
 
                     resp.setEncoding('utf8');
@@ -205,7 +204,7 @@ module.exports.process_msg = function (ws, data) {
                         //get chainstats through REST API
                         var options = {
                             host: peers[0],
-                            port: '443',
+                            port: '7050',
                             path: '/chain/blocks/' + key,
                             method: 'GET'
                         };
@@ -226,7 +225,7 @@ module.exports.process_msg = function (ws, data) {
                         };
 
                         var goodJSON = false;
-                        var request = https.request(options, function (resp) {
+                        var request = http.request(options, function (resp) {
                             var str = '', temp, chunks = 0;
                             resp.setEncoding('utf8');
                             resp.on('data', function (chunk) {															//merge chunks of request

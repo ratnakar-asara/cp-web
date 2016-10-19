@@ -3,7 +3,7 @@
 /*******************************************************************************
  * Copyright (c) 2015 IBM Corp.
  *
- * All rights reserved. 
+ * All rights reserved.
  *
  * Contributors:
  *   David Huffman - Initial implementation
@@ -30,7 +30,7 @@
 			}
 			rest.get(options, {'user':'david'});
 	-----------------------------------------------------------------
-	
+
 	Valid "options" values: (these are default ones that come from requests module)
 	-----------------------------------------------------------------
 	host: A domain name or IP address of the server to issue the request to. Defaults to 'localhost'.
@@ -48,7 +48,7 @@
 		false: opts out of connection pooling with an Agent, defaults request to Connection: close.
 	keepAlive: {Boolean} Keep sockets around in a pool to be used by other requests in the future. Default = false
 	keepAliveMsecs: {Integer} When using HTTP KeepAlive, how often to send TCP KeepAlive packets over sockets being kept alive. Default = 1000. Only relevant if keepAlive is set to true.
-	
+
 	Plus my "options" values:
 	-----------------------------------------------------------------
 	quiet: If true will not print to console. Defaults false.
@@ -57,10 +57,9 @@
 	cb: Node.js call back style of cb(error_obj, response).
 	success: jQuery call back style of success(statusCode, response)
 	failure: jQuery call back style of failure(statusCode, response)
-	include_headers: If true the response argument will be {"response":<response>, "headers":<headers>} 
+	include_headers: If true the response argument will be {"response":<response>, "headers":<headers>}
 */
 
-var https_mod = require('https');
 var http_mod = require('http');
 var default_options = 	{
 							quiet: false,
@@ -96,30 +95,24 @@ function http(options, parameters, body){
 	var ids = 'abcdefghijkmnopqrstuvwxyz';
 	var id = ids[Math.floor(Math.random() * ids.length)];										//random letter to help id calls when there are multiple rest calls
 	options = mergeBtoA(default_options, options);
-	
+
 	//// Handle Call Back ////
 	function success(statusCode, headers, resp){												//go to success callback
 		if(options.include_headers) resp = {response:resp, headers: headers};
 		if(jQuery) options.success(statusCode, resp);
 		else if(nodeJs) options.cb(null, resp);													//if neither callback set, don't do either
 	}
-	
+
 	function failure(statusCode, headers, msg){													//go to failure callback
 		if(options.include_headers) msg = {response:msg, headers: headers};
 		if(jQuery) options.failure(statusCode, msg);
 		else if(nodeJs) options.cb(statusCode, msg);											//if neither callback set, don't do either
 	}
-	
-	if(typeof(options.ssl) === 'undefined' || options.ssl) {									//if options.ssl not found or true use https
-		http = https_mod;
-		http_txt = '[https ' + options.method + ' - ' + id + ']';
-	}
-	else {
-		http = http_mod;																		//if options.ssl == false use http
-		http_txt = '[http ' + options.method + ' - ' + id + ']';
-	}
+
+	http = http_mod;																		//if options.ssl == false use http
+	http_txt = '[http ' + options.method + ' - ' + id + ']';
 	if(!options.quiet) console.log(http_txt + ' ' + options.path);
-	
+
 	//// Sanitize Inputs ////
 	var querystring = require('querystring');													//convert all header keys to lower-case for easier parsing
 	for(var i in options.headers) {
@@ -129,13 +122,13 @@ function http(options, parameters, body){
 			options.headers[i.toLowerCase()] = temp;
 		}
 	}
-	
+
 	if(typeof body == 'object'){
 		if(options.headers) options.headers['content-type'] = 'application/json';
 		else options.headers = {'content-type': 'application/json'};
 		body = JSON.stringify(body);																//stringify body
 	}
-	
+
 	if(options.headers && options.headers['accept'] && options.headers['accept'].toLowerCase().indexOf('json') >= 0) acceptJson = true;
 	if(options.success && options.failure) jQuery = true;
 	else if(options.cb) nodeJs = true;
@@ -145,17 +138,17 @@ function http(options, parameters, body){
 		else options.headers = {'content-lenght': Buffer.byteLength(body)};
 	}
 	else if(options.headers['content-length']) delete options.headers['content-length'];
-	
+
 	if(!options.quiet && options.method.toLowerCase() !== 'get') {
 		console.log('  body:', body);
 	}
-		
+
 	//// Handle Request ////
 	if(typeof parameters == 'object') options.path += '?' + querystring.stringify(parameters);		//should be a json object
 	var request = http.request(options, function(resp) {
 		var str = '', temp, chunks = 0;
 		if(!options.quiet) console.log(http_txt + ' Status code: ' + resp.statusCode);
-		
+
 		resp.setEncoding('utf8');
 		resp.on('data', function(chunk) {															//merge chunks of request
 			str += chunk;
@@ -199,19 +192,19 @@ function http(options, parameters, body){
 			}
 		});
 	});
-	
+
 	request.on('error', function(e) {																//handle error event
 		if(!options.quiet) console.log(http_txt + ' Error - unknown issue with request: ', e);		//catch failed request (failed DNS lookup and such)
 		failure(500, null, e);
 	});
-	
+
 	request.setTimeout(Number(options.timeout) || default_options.timeout);
 	request.on('timeout', function(){																//handle time out event
 		if(!options.quiet) console.log(http_txt + ' Error - request timed out');
 		failure(408, null, 'Request timed out');
 		request.destroy();
 	});
-	
+
 	if(body && body !== '' && !isEmpty(body)){
 		request.write(body);
 	}

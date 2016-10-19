@@ -1,0 +1,57 @@
+{
+	"credentials": {
+		"peers": [{
+			"api_port": "7051",
+			"id": "vp0",
+			"api_url": "grpc://localhost:7051"
+		}, {
+			"api_port": "8051",
+			"id": "vp1",
+			"api_url": "grpc://localhost:8051"
+		}, {
+			"api_port": "9051",
+			"id": "vp2",
+			"api_url": "grpc://localhost:9051"
+		}, {
+			"api_port": "10051",
+			"id": "vp3",
+			"api_url": "grpc://localhost:10051"
+		}],
+		"ca": {
+			"api_port": "7054",
+			"id": "caserver",
+			"api_url": "grpc://localhost:7054"
+		},
+		"users": [{
+			"username": "admin",
+			"secret": "Xurw3yU9zI0l",
+			"enrollId": "admin",
+			"enrollSecret": "Xurw3yU9zI0l"
+		}, {
+			"username": "WebAppAdmin",
+			"secret": "DJY27pEnl16d",
+			"enrollId": "WebAppAdmin",
+			"enrollSecret": "DJY27pEnl16d"
+		}, {
+			"username": "test_user0",
+			"secret": "MS9qrN8hFjlE",
+			"enrollId": "test_user0",
+			"enrollSecret": "MS9qrN8hFjlE"
+		}, {
+			"username": "test_user1",
+			"secret": "jGlNl6ImkuDo",
+			"enrollId": "test_user1",
+			"enrollSecret": "jGlNl6ImkuDo"
+		}, {
+			"username": "test_user2",
+			"secret": "zMflqOKezFiA",
+			"enrollId": "test_user2",
+			"enrollSecret": "zMflqOKezFiA"
+		}, {
+			"username": "test_user3",
+			"secret": "vWdLCE00vJy0",
+			"enrollId": "test_user3",
+			"enrollSecret": "vWdLCE00vJy0"
+		}]
+	}
+}

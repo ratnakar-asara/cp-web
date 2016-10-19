@@ -86,8 +86,7 @@ function registerUser(username, role, cb) {
             console.log("registering user..........");
             var registrationRequest = {
                 enrollmentID: username,
-                account: "group1",
-                affiliation: "00001"
+                affiliation: "bank_a"
             };
             usr.register(registrationRequest, function (err, enrollsecret) {
                 if (err) {
@@ -103,7 +102,7 @@ function registerUser(username, role, cb) {
                         } else {
                             cb(null, cred);
                         }
-                    });     
+                    });
 
                 }
             });

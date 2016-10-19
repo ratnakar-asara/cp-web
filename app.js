@@ -9,6 +9,7 @@
  * Contributors:
  *   David Huffman - Initial implementation
  *   Dale Avery
+ *   Ratnakar
  *******************************************************************************/
 /////////////////////////////////////////
 ///////////// Setup Node.js /////////////
@@ -25,7 +26,6 @@ var morgan = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var http = require('http');
-var https = require('https');
 var app = express();
 var setup = require('./setup');
 var cors = require("cors");
@@ -34,9 +34,6 @@ var fs = require("fs");
 //// Set Server Parameters ////
 var host = setup.SERVER.HOST;
 var port = setup.SERVER.PORT;
-
-// For logging
-var TAG = "app.js:";
 
 ////////  Pathing and Module Setup  ////////
 app.set('views', path.join(__dirname, 'views'));
@@ -95,9 +92,6 @@ app.use(function (err, req, res, next) {		// = development error handler, print 
     res.render('template/error', { bag: req.bag });
 });
 
-// Track the application deployments
-require("cf-deployment-tracker-client").track();
-
 // ============================================================================================================================
 // 														Launch Webserver
 // ============================================================================================================================
@@ -105,33 +99,8 @@ var server = http.createServer(app).listen(port, function () { });
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 process.env.NODE_ENV = 'production';
 server.timeout = 240000;
-// Ta-da.
+
 console.log('------------------------------------------ Server Up - ' + host + ':' + port + ' ------------------------------------------');
-if (process.env.PRODUCTION) console.log('Running using Production settings');
-else console.log('Running using Developer settings');
-
-// Track the application deployments
-console.log('- Tracking Deployment');
-require("cf-deployment-tracker-client").track();
-
-// ============================================================================================================================
-// ============================================================================================================================
-// ============================================================================================================================
-// ============================================================================================================================
-// ============================================================================================================================
-// ============================================================================================================================
-
-// ============================================================================================================================
-// 														Warning
-// ============================================================================================================================
-
-// ============================================================================================================================
-// 														Entering
-// ============================================================================================================================
-
-// ============================================================================================================================
-// 														Test Area
-// ============================================================================================================================
 var part2 = require('./utils/ws_part2');
 var ws = require('ws');
 var wss = {};
@@ -144,12 +113,7 @@ var WebAppAdmin;
 
 // Configure the KeyValStore which is used to store sensitive keys
 // as so it is important to secure this storage.
-chain.setKeyValStore(hfc.newFileKeyValStore('/tmp/keyValStore'));
-chain.setDeployWaitTime(100);
-chain.setECDSAModeForGRPC(true);
-// ==================================
-// load peers manually or from VCAP, VCAP will overwrite hardcoded list!
-// ==================================
+chain.setKeyValStore(hfc.newFileKeyValStore(__dirname+'/keyValStore'));
 
 var peerURLs = [];
 var caURL = null;
@@ -158,18 +122,16 @@ var registrar = null; //user used to register other users and deploy chaincode
 var peerHosts = [];
 
 //hard-coded the peers and CA addresses.
-//added for reading configs from file
+//added for reading configs from config file
 try {
-    var manual = JSON.parse(fs.readFileSync('mycreds.json', 'utf8'));
+    //var manual = JSON.parse(fs.readFileSync('mycreds.json', 'utf8'));
+    var manual = JSON.parse(fs.readFileSync('config.json', 'utf8'));
     var peers = manual.credentials.peers;
+    peerHosts.push("localhost");
     for (var i in peers) {
-        peerURLs.push("grpcs://" + peers[i].discovery_host + ":" + peers[i].discovery_port);
-        peerHosts.push("" + peers[i].discovery_host);
+         peerURLs.push(peers[i].api_url);
     }
-    var ca = manual.credentials.ca;
-    for (var i in ca) {
-        caURL = "grpcs://" + ca[i].url;
-    }
+    caURL = manual.credentials.ca.api_url;
     console.log('loading hardcoded peers');
     var users = null;																			//users are only found if security is on
     if (manual.credentials.users) users = manual.credentials.users;
@@ -177,46 +139,6 @@ try {
 }
 catch (e) {
     console.log('Error - could not find hardcoded peers/users, this is okay if running in bluemix');
-}
-
-if (process.env.VCAP_SERVICES) {
-    //load from vcap, search for service, 1 of the 3 should be found...
-    var servicesObject = JSON.parse(process.env.VCAP_SERVICES);
-    for (var i in servicesObject) {
-        if (i.indexOf('ibm-blockchain') >= 0) {											//looks close enough
-            if (servicesObject[i][0].credentials.error) {
-                console.log('!\n!\n! Error from Bluemix: \n', servicesObject[i][0].credentials.error, '!\n!\n');
-                peers = null;
-                users = null;
-                process.error = { type: 'network', msg: 'Due to overwhelming demand the IBM Blockchain Network service is at maximum capacity.  Please try recreating this service at a later date.' };
-            }
-            if (servicesObject[i][0].credentials && servicesObject[i][0].credentials.peers) {
-                console.log('overwritting peers, loading from a vcap service: ', i);
-                peers = servicesObject[i][0].credentials.peers;
-                peerURLs = [];
-                peerHosts = [];
-                for (var j in peers) {
-                    peerURLs.push("grpcs://" + peers[j].discovery_host + ":" + peers[j].discovery_port);
-                    peerHosts.push("" + peers[j].discovery_host);
-                }
-                if (servicesObject[i][0].credentials.ca) {
-                    console.log('overwritting ca, loading from a vcap service: ', i);
-                    ca = servicesObject[i][0].credentials.ca;
-                    for (var z in ca) {
-                        caURL = "grpcs://" + ca[z].discovery_host + ":" + ca[z].discovery_port;
-                    }
-                    if (servicesObject[i][0].credentials.users) {
-                        console.log('overwritting users, loading from a vcap service: ', i);
-                        users = servicesObject[i][0].credentials.users;
-                        //TODO extract registrar from users once user list has been updated to new SDK
-                    }
-                    else users = null;													//no security	
-                }
-                else ca = null;
-                break;
-            }
-        }
-    }
 }
 
 var pwd = "";
@@ -227,22 +149,11 @@ for (var z in users) {
 }
 console.log("calling network config");
 configure_network();
-// ==================================
-// configure ibm-blockchain-js sdk
-// ==================================
 
 function configure_network() {
-    var pem = fs.readFileSync('us.blockchain.ibm.com.cert');
-    if (fs.existsSync('us.blockchain.ibm.com.cert')) {
-        console.log("found cert us.blockchain.ibm.com");
-        chain.setMemberServicesUrl(caURL, { pem: pem });
-    }
-    else {
-        console.log("Failed to get the certificate....");
-    }
-
+    chain.setMemberServicesUrl(caURL);
     for (var i in peerURLs) {
-        chain.addPeer(peerURLs[i], { pem: pem });
+        chain.addPeer(peerURLs[i]);
     }
 
     chain.getMember("WebAppAdmin", function (err, WebAppAdmin) {
@@ -283,8 +194,7 @@ function deploy(WebAppAdmin) {
     var deployRequest = {
         fcn: "init",
         args: ['a', '100'],
-        chaincodePath: "chain_code/",
-        certificatePath: "/certs/blockchain-cert.pem"
+        chaincodePath: "chain_code"
     };
     var deployTx = WebAppAdmin.deploy(deployRequest);
 
@@ -339,11 +249,11 @@ function cb_deployed(e, d) {
                 }
             });
         };
-        //clients will need to know if blockheight changes 
+        //clients will need to know if blockheight changes
         setInterval(function () {
             var options = {
                 host: peerHosts[0],
-                port: '443',
+                port: '7050',
                 path: '/chain',
                 method: 'GET'
             };
@@ -362,7 +272,7 @@ function cb_deployed(e, d) {
             };
 
             var goodJSON = false;
-            var request = https.request(options, function (resp) {
+            var request = http.request(options, function (resp) {
                 var str = '', temp, chunks = 0;
                 resp.setEncoding('utf8');
                 resp.on('data', function (chunk) {                                                            //merge chunks of request
